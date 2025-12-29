@@ -497,7 +497,7 @@ class HotelViewSet(ProtectedModelViewSet):
                 elif hasattr(b.user, 'get_full_name'):
                     guest_name = b.user.get_full_name()
                 else:
-                    guest_name = b.user.fullname or "Guest"
+                    guest_name = b.user.full_name or "Guest"
             else:
                 guest_name = "Guest"
 
