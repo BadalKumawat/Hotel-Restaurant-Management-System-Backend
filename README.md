@@ -86,4 +86,5 @@ python manage.py runserver
 This project is licensed under the MIT License
 
 👨‍💻 Author
-Developed by Badal Kumawat
+Developed by Badal Kumawat in Collaboration with Akash Kumawat
+
