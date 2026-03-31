@@ -57,6 +57,8 @@ class HotelViewSet(ProtectedModelViewSet):
         # 4. Staff: Their linked hotel
         if hasattr(user, 'staff_profile') and user.staff_profile.hotel:
             return Hotel.objects.filter(id=user.staff_profile.hotel.id)
+          
+        return Hotel.objects.none()
 
     
     @action(detail=False, methods=['get'], url_path='stats')
