@@ -922,7 +922,6 @@ class StaffReviewViewSet(ProtectedModelViewSet):
 
 #         data = []
 
-<<<<<<< HEAD
         # 1. Hotel Service
         qs_hotel = HotelReview.objects.all()
         if target_hotel:
@@ -1275,7 +1274,6 @@ class StaffReviewViewSet(ProtectedModelViewSet):
         review.reply = reply_text
         review.save()
         return Response({"message": "Reply submitted successfully.", "reply": review.reply}, status=status.HTTP_200_OK)
-=======
 #         # ====================================================
 #         # 3. CARD 1: HOTEL SERVICE
 #         # ====================================================
@@ -1310,4 +1308,3 @@ class StaffReviewViewSet(ProtectedModelViewSet):
 #         data.append(get_category_stats("Room & Services", qs_service))
 
 #         return Response(data, status=status.HTTP_200_OK)
->>>>>>> 1e68aa7 (restaurant views)
