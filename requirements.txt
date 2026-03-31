@@ -46,7 +46,7 @@ nltk==3.9.1
 oauthlib==3.3.1
 openai==1.109.1
 openpyxl==3.1.5
-packaging==25.0
+#packaging==25.0
 pillow==11.3.0
 prompt_toolkit==3.0.52
 propcache==0.4.1
@@ -63,7 +63,7 @@ PyJWT==2.10.1
 pyparsing==3.2.5
 pytesseract==0.3.13
 python-dateutil==2.9.0.post0
-python-dotenv==1.1.1
+#python-dotenv==1.1.1
 pytz==2025.2
 PyYAML==6.0.2
 referencing==0.37.0
