@@ -86,4 +86,7 @@ python manage.py runserver
 This project is licensed under the MIT License
 
 👨‍💻 Author
-Developed by Aakash Kumawat
+Developed by Badal Kumawat in Collaboration with Akash Kumawat
+
+# Hotel-Restaurant-Management-System-Backend
+A Hotel &amp; Restaurant Management System built using Python and Django to manage hotel operations such as room booking, customer management, restaurant orders, billing, and staff management. The system helps automate daily operations and improve efficiency with a centralized management platform.

@@ -36,6 +36,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     
     is_email_verified = models.BooleanField(default=False)
     is_phone_verified = models.BooleanField(default=True)
+    
+    force_password_change = models.BooleanField(
+        default=False,
+        help_text="User must change password on first login or after admin reset."
+    )
 
     objects = UserManager()
 
@@ -55,7 +60,7 @@ class User(AbstractBaseUser, PermissionsMixin):
                 count += 1
             self.slug = slug
             
-        self.is_active = self.is_email_verified and self.is_phone_verified
+        # self.is_active = self.is_email_verified and self.is_phone_verified
         super().save(*args, **kwargs)
     
     class Meta:
@@ -80,3 +85,17 @@ class Profile(models.Model):
 
     def __str__(self):
         return self.user.full_name
+
+
+class UserModule(models.Model):
+    MODULE_CHOICES = [
+        ("hotel", "Hotel"),
+        ("restaurant", "Restaurant"),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="modules")
+    module = models.CharField(max_length=20, choices=MODULE_CHOICES)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ("user", "module")

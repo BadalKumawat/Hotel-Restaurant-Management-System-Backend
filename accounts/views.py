@@ -5,7 +5,7 @@ from django.contrib.auth import authenticate, logout, login
 from rest_framework.permissions import IsAuthenticated
 from MBP.permissions import HasModelPermission
 from MBP.models import Role, RoleModelPermission
-from accounts.serializers import UserSerializer, RegisterUserSerializer
+from accounts.serializers import UserSerializer, RegisterUserSerializer, VerifyEmailAndResetPasswordSerializer
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from MBP.utils import log_audit
@@ -14,6 +14,8 @@ from MBP.views import ProtectedModelViewSet
 from django.core.mail import send_mail
 from django.conf import settings
 import random
+from Hotel.models import Hotel
+from Restaurant.models import Restaurant
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -82,6 +84,25 @@ class UserViewSet(ProtectedModelViewSet):
         except Role.DoesNotExist:
             return Response({"error": "Role not found."}, status=status.HTTP_404_NOT_FOUND)
 
+    @action(detail=False, methods=['delete'], url_path='delete-my-users')
+    def delete_my_users(self, request):
+        user = request.user
+
+        # SUPERUSER — can delete all normal users
+        if user.is_superuser:
+            deleted, _ = User.objects.exclude(is_superuser=True).delete()
+            return Response({"message": f"Deleted {deleted} users"}, status=200)
+
+        # HOTEL ADMIN — delete users created by him
+        if hasattr(user, 'role') and user.role.name.lower() == "admin":
+            deleted, _ = User.objects.filter(created_by=user).delete()
+            return Response({"message": f"Deleted {deleted} users created by you"}, status=200)
+
+        return Response(
+            {"error": "You do not have permission to delete users."},
+            status=403
+        )
+        
 from django.core.cache import cache
 
 class RegisterView(APIView):
@@ -91,23 +112,6 @@ class RegisterView(APIView):
         serializer = RegisterUserSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
             user = serializer.save()
-
-            # # ✅ Generate OTP for phone
-            # otp = str(random.randint(100000, 999999))
-            
-            # # ✅ Store OTP in cache for 5 min
-            # cache.set(f"otp_{user.phone}", otp, timeout=300)
-            # print(f"DEBUG: OTP for {user.phone} is {otp}")  # Replace with Twilio SMS later
-
-            # ✅ Send email verification
-            verification_link = f"http://127.0.0.1:8000/api/verify-email/{user.slug}/"
-            send_mail(
-                subject="Verify your email",
-                message=f"Hello {user.full_name},\n\nClick here to verify your email: {verification_link}",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=False,
-            )
 
             # 🔐 Audit log
             log_audit(
@@ -132,17 +136,21 @@ class RegisterView(APIView):
 
 
 class VerifyEmailView(APIView):
-    permission_classes = [AllowAny]
-    
+    permission_classes = []
+
     def get(self, request, slug):
         user = get_object_or_404(User, slug=slug)
+
         if not user.is_email_verified:
             user.is_email_verified = True
+            user.is_active = True
             user.save()
+
         return Response(
-            {"message": "Email verified successfully!"},
-            status=status.HTTP_200_OK
+            {"message": "Email verified successfully. You can now log in."},
+            status=200
         )
+
 
 class VerifyOTPView(APIView):
     permission_classes = [AllowAny]
@@ -171,10 +179,33 @@ class VerifyOTPView(APIView):
             status=status.HTTP_200_OK
         )
 
+class VerifyEmailAndResetPasswordAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, slug):
+        user = get_object_or_404(User, slug=slug)
+
+        serializer = VerifyEmailAndResetPasswordSerializer(
+            data=request.data,
+            context={"user": user}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save(user=user)
+
+        return Response(
+            {"message": "Email verified and password reset successfully."},
+            status=status.HTTP_200_OK
+        )
+
+
+
+
 
 class LoginView(APIView):
     permission_classes = []  # login is public
     throttle_classes = [UserRateThrottle]  # prevent brute force
+    
+    DEFAULT_PASSWORD = "Welcome@123"
 
     def post(self, request):
         email = request.data.get("email")
@@ -200,6 +231,16 @@ class LoginView(APIView):
             return Response(
                 {"error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        if user.check_password(self.DEFAULT_PASSWORD):
+            return Response(
+                {
+                    "first_login": True,
+                    "message": "Please reset your password before continuing.",
+                    "email": user.email
+                },
+                status=status.HTTP_200_OK
             )
 
         # Step 3: Check email verification
@@ -246,16 +287,45 @@ class LoginView(APIView):
                     "permission": rp.permission_type.code
                 })
 
-        # Step 9: Return response
+        # 🔟 Detect owned modules
+        hotel_slug = None
+        restaurant_slug = None
+
+        # Superuser → manage all
+        if user.is_superuser:
+            hotel_slug = None
+            restaurant_slug = None
+
+        else:
+            # Hotel owner
+            hotel = Hotel.objects.filter(owner=user).first()
+            if hotel:
+                hotel_slug = hotel.slug
+
+            # Restaurant owner
+            restaurant = Restaurant.objects.filter(owner=user).first()
+            if restaurant:
+                restaurant_slug = restaurant.slug
+
+            # Staff overrides ownership
+            if user.role and user.role.name.lower() == "staff":
+                if hasattr(user, "staff_profile"):
+                    if user.staff_profile.hotel:
+                        hotel_slug = user.staff_profile.hotel.slug
+                    if user.staff_profile.restaurant:
+                        restaurant_slug = user.staff_profile.restaurant.slug
+
+        # 🔹 Step 10: Return complete response
         return Response({
             "refresh": str(refresh),
             "access": str(refresh.access_token),
             "user": {
-                # "id": str(user.id),
                 "email": user.email,
                 "full_name": user.full_name,
                 "role": user.role.name if user.role else None,
                 "permissions": accessible_models,
+                "hotel_slug": hotel_slug,  # ✅ Added
+                "restaurant_slug": restaurant_slug,
             },
         }, status=status.HTTP_200_OK)
         

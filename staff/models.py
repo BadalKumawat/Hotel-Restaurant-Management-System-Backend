@@ -5,6 +5,7 @@ from django.utils.text import slugify
 from decimal import Decimal
 from Hotel.models import Hotel
 from datetime import datetime, date
+from Restaurant.models import Restaurant
 
 User = settings.AUTH_USER_MODEL
 
@@ -13,6 +14,7 @@ class Staff(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='staff_profile')
     hotel = models.ForeignKey(Hotel, on_delete=models.CASCADE, null=True, blank=True, related_name='staff')
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, null=True, blank=True, related_name='staff')
     slug = models.SlugField(unique=True, blank=True)
 
     designation = models.CharField(max_length=100, blank=True, null=True)
@@ -61,6 +63,32 @@ class Staff(models.Model):
         present_days = self.attendance_records.filter(status='present').count()
         score = (present_days / total_days) * 100
         return round(score, 2)
+
+class StaffDocument(models.Model):
+    DOCUMENT_TYPES = [
+        ("aadhar", "Aadhar Card"),
+        ("pan", "PAN Card"),
+        ("passport", "Passport"),
+        ("driving_license", "Driving License"),
+        ("other", "Other")
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    staff = models.ForeignKey(Staff, on_delete=models.CASCADE, related_name="documents")
+    document_type = models.CharField(max_length=50, choices=DOCUMENT_TYPES)
+    document_number = models.CharField(max_length=100)
+    document_file = models.FileField(upload_to="staff_docs/", null=True, blank=True)
+    issued_date = models.DateField(null=True, blank=True)
+    expiry_date = models.DateField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('staff', 'document_type')  # Prevent duplicates
+
+    def __str__(self):
+        return f"{self.staff.user.full_name} - {self.document_type}"
+
 
 
 class Attendance(models.Model):

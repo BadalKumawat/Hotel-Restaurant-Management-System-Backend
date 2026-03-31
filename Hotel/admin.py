@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Hotel, RoomCategory, Room, Booking, RoomServiceRequest, Guest, RoomMedia
+from .models import Hotel, RoomCategory, Room, Booking, RoomServiceRequest, Guest, RoomMedia, Destination,MobileAppConfig,Package, HotelMedia
 
 class GuestInline(admin.TabularInline):
     model = Guest
@@ -49,9 +49,44 @@ class BookingAdmin(admin.ModelAdmin):
 
 @admin.register(RoomServiceRequest)
 class RoomServiceRequestAdmin(admin.ModelAdmin):
-    list_display = ('room', 'user', 'service_type', 'requested_at', 'is_resolved')
-    list_filter = ('service_type', 'is_resolved')
-    search_fields = ('room__room_number', 'user__full_name', 'description')
+    list_display = [
+        'service_code', 'service_type', 'room', 'booking', 'user',
+        'priority', 'status', 'cost', 'total_cost', 'requested_at', 'is_resolved'
+    ]
+    list_filter = [
+        'service_type', 'priority', 'status', 'is_resolved', 'room__hotel'
+    ]
+    search_fields = [
+        'service_code', 'room__room_number', 'user__full_name',
+        'booking__id', 'slug'
+    ]
+    readonly_fields = [
+        'service_code', 'slug', 'cost', 'base_cost', 'total_cost', 'requested_at'
+    ]
+    ordering = ['-requested_at']
+    fieldsets = (
+        (None, {
+            'fields': (
+                'service_code', 'slug', 'service_type', 'description', 'priority', 'status', 'is_resolved'
+            )
+        }),
+        ('Related Info', {
+            'fields': (
+                'room', 'booking', 'user'
+            )
+        }),
+        ('Cost Details', {
+            'fields': (
+                'base_cost', 'total_cost', 'cost'
+            )
+        }),
+        ('Timing', {
+            'fields': (
+                'requested_at', 'pickup_time', 'delivery_time'
+            )
+        }),
+    )
+
     
     
 @admin.register(Guest)
@@ -61,3 +96,44 @@ class GuestAdmin(admin.ModelAdmin):
     list_filter = ['gender']
     readonly_fields = ['slug']
     ordering = ['first_name']
+
+
+@admin.register(Destination)
+class DestinationAdmin(admin.ModelAdmin):
+    list_display = ('name', 'image')   # admin list columns
+    search_fields = ('name',)
+    readonly_fields = ('slug',)  # slug & preview read-only
+    # prepopulated_fields = {'slug': ('name',)}     # Auto-slug from name
+    ordering = ('name',)
+
+@admin.register(MobileAppConfig)
+class MobileAppConfigAdmin(admin.ModelAdmin):
+    list_display = ('id', 'updated_at')
+    
+    # Ye optional hai: Agar tu chahta hai admin panel me "Add" ka button
+    # gayab ho jaye agar 1 object pehle se bana hua hai (Taaki sirf ek hi config rahe)
+    def has_add_permission(self, request):
+        # Agar pehle se koi object hai, to naya add mat karne do
+        if MobileAppConfig.objects.exists():
+            return False
+        return True
+    
+@admin.register(Package)
+class PackageAdmin(admin.ModelAdmin):
+    list_display = ('name', 'package_type', 'price')   # admin list columns
+    search_fields = ('name','locations')
+    readonly_fields = ('slug',)  # slug & preview read-only
+    # prepopulated_fields = {'slug': ('name',)}     # Auto-slug from name
+    ordering = ('name',)
+
+@admin.register(HotelMedia)
+class HotelMediaAdmin(admin.ModelAdmin):
+    list_display = ('id','hotel','media_type','caption','created_at')
+
+    list_filter = ('media_type','created_at',)
+
+    search_fields = ('hotel__name','caption',)
+
+    readonly_fields = ('created_at',)
+
+    ordering = ('-created_at',)
